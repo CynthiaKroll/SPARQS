@@ -328,13 +328,18 @@ This work was supported by:
 This project is released for academic and research purposes.
 
 ## Citation
+
 If you use SPARQS in your research, experiments, publications, or derivative work, please cite our paper.
+
+
 SPARQS: SPiking EARly-Exit Quantized Neural Networks for Safety-Critical Edge Deployment
 Mahdi Taheri, Harshvardhan Sharma, Christian Herglotz, and Maksim Jenihhin
 Journal of Systems Architecture (JSA), Elsevier
 Special Issue on the Architecture of Computing Systems (ARCS 2026)
 
 Bibtex:
+
+
 @article{taheri2026sparqs,
   title   = {SPARQS: SPiking EARly-Exit Quantized Neural Networks for Safety-Critical Edge Deployment},
   author  = {Taheri, Mahdi and Sharma, Harshvardhan and Herglotz, Christian and Jenihhin, Maksim},
