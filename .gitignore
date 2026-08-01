@@ -102,9 +102,11 @@ lava_loihi_sim/ALEXNET_LOIHI_PLAN.md
 # Modules not part of this release
 # (delete a line here to start publishing one)
 # -------------------------------------------
-resilience/
 tools/
 JASPER code/
+
+# Resilience module: code is published, sweep outputs are not
+resilience/sweep/
 
 # -------------------------------------------
 # Python

@@ -66,6 +66,17 @@ SPARQS/
 │   ├── src_utils/           # BN folding, Lava SNN helpers, power estimation
 │   └── scripts/             # Simulation drivers and smoke tests
 │
+├── resilience/              # Reliability and security evaluation
+│   ├── fault_inject.py      # Weight-memory bit-flip injection
+│   ├── attack.py            # Shared rho-budget input perturbation
+│   ├── campaign.py          # Campaign driver across architectures/variants
+│   ├── registry.py          # Loader + metadata for every (arch, variant) pair
+│   ├── metrics.py           # The SPARQ resilience metric
+│   ├── cost.py              # Threat-aware energy / latency accounting
+│   ├── margin_drift.py      # Top-1/Top-2 margin drift under faults
+│   ├── sensitivity.py       # Cost-model sensitivity of the joint metric
+│   └── summarize.py         # Joint metric + result tables
+│
 ├── common_utils.py          # Shared utilities
 ├── requirements.txt         # Python dependencies
 └── README.md
@@ -137,6 +148,16 @@ python lava_loihi_sim/sparq/export_lenet_qdsnn.py
 python lava_loihi_sim/sparq/lava_build_qdsnn.py --npz <exported>.npz --n 50
 ```
 
+### 7. Resilience Evaluation (Faults and Attacks)
+
+```bash
+# Fault-injection + attack campaign for one (architecture, variant) pair
+python resilience/campaign.py --arch alexnet --variant qdsnn --n 512 --trials 3
+
+# Combine the per-variant CSVs into the joint metric and result tables
+python resilience/summarize.py
+```
+
 ## Methodology
 
 SPARQS implements a four-stage pipeline:
@@ -204,22 +225,10 @@ Outputs:
 - Exit distribution analysis
 - Power consumption breakdown
 
-## Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@inproceedings{sparqs2025,
-  title={SPARQS: Spiking Early-Exit Quantized Neural Networks for Safety-Critical Edge Deployment},
-  author={Patne, Parth and Taheri, Mahdi and Mahani, Ali and Jenihhin, Maksim and Mahani, Reza and Herglotz, Christian},
-  booktitle={Proceedings},
-  year={2025}
-}
-```
-
 ## Authors
 
 - **Parth Patne** - Brandenburg Technical University, Cottbus, Germany
+- **Harshvardhan Sharma** - Brandenburg Technical University, Cottbus, Germany
 - **Mahdi Taheri** - Brandenburg Technical University & Tallinn University of Technology
 - **Ali Mahani** - Shahid Bahonar University of Kerman & York University
 - **Maksim Jenihhin** - Tallinn University of Technology, Estonia

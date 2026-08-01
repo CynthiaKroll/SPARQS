@@ -1,0 +1,183 @@
+"""
+Combine the per-variant campaign CSVs into the joint metric and the paper tables.
+
+Reliability and security campaigns are parameterised differently (BER vs rho),
+so they must be projected onto a common perturbation axis before they can be
+combined -- JASPER faces the same problem and resolves it by mapping epsilon
+onto the BER axis. We use MATCHED SEVERITY INDEX: the grids are ordered by
+increasing severity and the i-th fault level is paired with the i-th attack
+level, giving severity levels L1..Ln. This is explicit and monotone, and it
+avoids inventing a physical equivalence between a bit flip and a pixel.
+
+Outputs
+  resilience/results/joint_metric.csv   R, S, SRS per (arch, variant, level)
+  resilience/results/summary.md         paper-ready tables
+
+Usage (from the repo root):
+  venv/Scripts/python.exe resilience/summarize.py
+"""
+import glob
+import os
+
+import numpy as np
+import pandas as pd
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+RESULTS = os.path.join(HERE, "results")
+
+from metrics import srs, phi   # noqa: E402
+
+VARIANT_ORDER = ["ann", "qsnn", "qdsnn"]
+LABEL = {"ann": "ANN (FP32)", "qsnn": "QSNN (INT8)", "qdsnn": "QDSNN (INT8)"}
+
+
+def load_all():
+    frames = []
+    for f in sorted(glob.glob(os.path.join(RESULTS, "*.csv"))):
+        b = os.path.basename(f)
+        # `*_lowber.csv` re-measures an existing design point on a finer BER
+        # grid. Merging it would duplicate that point's attack rows and break
+        # the matched-severity pairing, so it is reported separately.
+        if b == "joint_metric.csv" or b.endswith("_lowber.csv"):
+            continue
+        frames.append(pd.read_csv(f))
+    if not frames:
+        raise SystemExit("no campaign CSVs in resilience/results/")
+    return pd.concat(frames, ignore_index=True)
+
+
+def joint(df):
+    """Pair fault and attack rows by matched severity index -> R, S, SRS."""
+    out = []
+    for (arch, variant, th), g in df.groupby(["arch", "variant", "thresholds"], dropna=False):
+        clean = g[g.threat == "clean"]
+        fault = g[g.threat == "fault"].sort_values("intensity")
+        atk = g[g.threat == "attack"].sort_values("intensity")
+        if fault.empty or atk.empty:
+            continue
+        n = min(len(fault), len(atk))
+        for i in range(n):
+            fr, ar = fault.iloc[i], atk.iloc[i]
+            r, s = float(fr.score), float(ar.score)
+            out.append(dict(
+                arch=arch, variant=variant, thresholds=th, level=f"L{i+1}",
+                ber=fr.intensity, rho=ar.intensity,
+                acc_fault=fr.acc, acc_attack=ar.acc,
+                R=r, S=s, SRS=srs(r, s),
+                clean_acc=(float(clean.acc.iloc[0]) if not clean.empty else np.nan),
+                clean_energy=(float(clean.energy_j.iloc[0]) if not clean.empty else np.nan),
+                clean_t_run=(float(clean.t_run.iloc[0]) if not clean.empty else np.nan),
+                exposure_bits=fr.exposure_bits, phi_exercised=fr.phi))
+    return pd.DataFrame(out)
+
+
+def add_phi(j, level="L3", weights=(0.4, 0.3, 0.15, 0.15)):
+    """Pareto figure of merit, normalized to the QSNN of the same architecture.
+
+    Only the spiking variants are scored: the ANN's cost is measured in MACs on
+    a von-Neumann model while the spiking variants are priced in synaptic
+    operations on Loihi, so an energy ratio between them would compare two
+    different cost models (main.tex Sec. loihi_method makes the same point).
+    """
+    rows = []
+    sub = j[j.level == level]
+    for arch, g in sub.groupby("arch"):
+        base = g[g.variant == "qsnn"]
+        if base.empty or not np.isfinite(base.clean_energy.iloc[0]):
+            continue
+        b = base.iloc[0]
+        ref = dict(acc=b.clean_acc, srs=b.SRS, energy=b.clean_energy, latency=b.clean_t_run)
+        for _, r in g.iterrows():
+            if r.variant == "ann":
+                continue
+            rows.append(dict(arch=arch, variant=r.variant, thresholds=r.thresholds,
+                             level=level, clean_acc=r.clean_acc, SRS=r.SRS,
+                             energy=r.clean_energy, latency=r.clean_t_run,
+                             Phi=phi(r.clean_acc, r.SRS, r.clean_energy,
+                                     r.clean_t_run, ref, weights)))
+    return pd.DataFrame(rows)
+
+
+def md_table(df, cols, headers, fmt):
+    lines = ["| " + " | ".join(headers) + " |",
+             "|" + "|".join("---:" if f != "s" else "---" for f in fmt) + "|"]
+    for _, r in df.iterrows():
+        cells = []
+        for c, f in zip(cols, fmt):
+            v = r[c]
+            cells.append(str(v) if f == "s" else
+                         ("--" if not np.isfinite(v) else f"{v:{f}}"))
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def main():
+    df = load_all()
+    j = joint(df)
+    j.to_csv(os.path.join(RESULTS, "joint_metric.csv"), index=False)
+
+    parts = ["# SPARQ resilience — generated summary\n",
+             "Auto-generated by `resilience/summarize.py`. "
+             "R = reliability vulnerability (weight-BER), "
+             "S = security vulnerability (rho-budget attack), "
+             "SRS = sqrt((100-R)*(100-S)). Lower is better for R and S, "
+             "higher is better for SRS.\n"]
+
+    # --- fault-exposure ladder -------------------------------------------
+    parts.append("\n## Fault exposure X(c)\n")
+    ex = (df[df.threat == "clean"]
+          .groupby(["arch", "variant"], as_index=False)
+          .agg(exposure_bits=("exposure_bits", "first"),
+               phi=("phi", "first"), clean_acc=("acc", "first")))
+    ex["variant"] = pd.Categorical(ex.variant, VARIANT_ORDER, ordered=True)
+    ex = ex.sort_values(["arch", "variant"])
+    ex["label"] = ex.variant.map(LABEL)
+    parts.append(md_table(ex, ["arch", "label", "clean_acc", "exposure_bits", "phi"],
+                          ["Arch", "Variant", "Clean acc %", "Exposure (bits)", "phi"],
+                          ["s", "s", ".2f", ",.0f", ".3f"]))
+
+    # --- per-threat curves ----------------------------------------------
+    for threat, axis in (("fault", "BER"), ("attack", "rho")):
+        parts.append(f"\n\n## {threat.capitalize()} sweep ({axis})\n")
+        t = df[df.threat == threat].copy()
+        t["variant"] = pd.Categorical(t.variant, VARIANT_ORDER, ordered=True)
+        t = t.sort_values(["arch", "variant", "intensity"])
+        t["label"] = t.variant.map(LABEL)
+        parts.append(md_table(
+            t, ["arch", "label", "intensity", "acc", "D_A", "D_M", "I_E", "I_L", "U", "H", "score"],
+            ["Arch", "Variant", axis, "Acc %", "D_A", "D_M", "I_E", "I_L", "U", "H",
+             "R" if threat == "fault" else "S"],
+            ["s", "s", ".0e", ".2f", ".2f", ".2f", ".2f", ".2f", ".2f", ".2f", ".2f"]))
+
+    # --- joint metric ----------------------------------------------------
+    parts.append("\n\n## Spiking Resilience Score (SRS)\n")
+    jj = j.copy()
+    jj["variant"] = pd.Categorical(jj.variant, VARIANT_ORDER, ordered=True)
+    jj = jj.sort_values(["arch", "variant", "level"])
+    jj["label"] = jj.variant.map(LABEL)
+    parts.append(md_table(jj, ["arch", "label", "level", "ber", "rho", "R", "S", "SRS"],
+                          ["Arch", "Variant", "Level", "BER", "rho", "R", "S", "SRS"],
+                          ["s", "s", "s", ".0e", ".3f", ".2f", ".2f", ".2f"]))
+
+    # --- Pareto figure of merit -----------------------------------------
+    for lvl in ("L2", "L3"):
+        p = add_phi(j, level=lvl)
+        if p.empty:
+            continue
+        parts.append(f"\n\n## Pareto figure of merit Phi at {lvl} "
+                     f"(normalized to each architecture's QSNN)\n")
+        p["label"] = p.variant.map(LABEL)
+        parts.append(md_table(p, ["arch", "label", "clean_acc", "SRS", "energy", "latency", "Phi"],
+                              ["Arch", "Variant", "Clean acc %", "SRS", "Energy (J)",
+                               "t_run", "Phi"],
+                              ["s", "s", ".2f", ".2f", ".3e", ".2f", ".4f"]))
+
+    out = os.path.join(RESULTS, "summary.md")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("\n".join(parts) + "\n")
+    print("\n".join(parts))
+    print(f"\n\nWrote {out} and joint_metric.csv")
+
+
+if __name__ == "__main__":
+    main()
