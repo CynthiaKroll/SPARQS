@@ -1,0 +1,181 @@
+# ===========================================
+# SPARQS .gitignore
+# Public repo carries source code only:
+# no datasets, checkpoints, results, figures
+# or paper sources.
+# ===========================================
+
+# -------------------------------------------
+# Datasets
+# -------------------------------------------
+data/
+*/data/
+*.tar.gz
+*.zip
+*.gz
+*.idx3-ubyte
+*.idx1-ubyte
+
+# -------------------------------------------
+# Model checkpoints / exported weights
+# -------------------------------------------
+*.pth
+*.pth.tar
+*.pt
+*.ckpt
+*.pkl
+*.onnx
+*.npz
+*.npy
+*.h5
+
+# -------------------------------------------
+# Experiment outputs (results, logs, exports)
+# -------------------------------------------
+results/
+*/results/
+results_*/
+logs/
+logs_*/
+runs/
+wandb/
+lava_loihi_sim/exports/
+*.jsonl
+*.csv
+*.tsv
+*.out
+slurm-*.out
+*_power_report.txt
+
+# -------------------------------------------
+# Paper / LaTeX sources and build artifacts
+# -------------------------------------------
+*.pdf
+*.tex
+*.bib
+*.cls
+*.sty
+*.bst
+figures/
+journal paper/
+.figbuild/
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.spl
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+
+# -------------------------------------------
+# Images / plots
+# -------------------------------------------
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.eps
+*.gif
+
+# -------------------------------------------
+# Internal notes, drafts and scratch material
+# (kept out of the public release)
+# -------------------------------------------
+_archive/
+_sparq_dump.txt
+.git_old_backup/
+PAPER_REWRITE_PLAN.md
+REAL_SPARQ_RESULTS.md
+RESILIENCE_NOTES.md
+SPARQ_AUDIT.md
+rerun_audit.sh
+lava_loihi_sim/ALEXNET_AGENT_BRIEF.md
+lava_loihi_sim/ALEXNET_LOIHI_PLAN.md
+
+# -------------------------------------------
+# Modules not part of this release
+# (delete a line here to start publishing one)
+# -------------------------------------------
+resilience/
+tools/
+JASPER code/
+
+# -------------------------------------------
+# Python
+# -------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# -------------------------------------------
+# Virtual environments
+# -------------------------------------------
+venv/
+venv-*/
+.venv/
+ENV/
+env/
+.python-version
+
+# -------------------------------------------
+# Editors / IDEs / agents
+# -------------------------------------------
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# -------------------------------------------
+# Notebooks
+# -------------------------------------------
+.ipynb_checkpoints/
+
+# -------------------------------------------
+# OS files
+# -------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# -------------------------------------------
+# Misc
+# -------------------------------------------
+*.tmp
+*.temp
+*.log
+*.bak
