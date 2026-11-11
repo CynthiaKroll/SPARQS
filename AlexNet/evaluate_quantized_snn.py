@@ -344,7 +344,7 @@ try:
     print(f"[Eval QSNN] Counting Memory Accesses (is_snn=True, time_steps={time_steps})...")
     # Call the centralized function from utils.py
     # Pass the dummy tensor and specify it's an SNN with its time_steps
-    snn_mem_access_final = count_memory_access(model, dummy_input_for_ops, is_snn=True, time_steps_from_caller=time_steps)
+    snn_mem_access_final = count_memory_access(model, dummy_input_for_ops, is_snn=True, time_steps=time_steps)
     print(f"[Eval QSNN] SNN Memory Accesses counted: {snn_mem_access_final}")
 except Exception as e_mem:
     print(f"[Eval QSNN Error] Failed to count Memory Accesses: {e_mem}")
